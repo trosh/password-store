@@ -3,8 +3,12 @@
 shopt -s nullglob globstar
 
 typeit=0
+typeandcopy=0
 if [[ $1 == "--type" ]]; then
 	typeit=1
+	shift
+elif [[ $1 == "--type-and-copy" ]] ; then
+	typeandcopy=1
 	shift
 fi
 
@@ -17,9 +21,26 @@ password=$(printf '%s\n' "${password_files[@]}" | dmenu "$@")
 
 [[ -n $password ]] || exit
 
-if [[ $typeit -eq 0 ]]; then
+copy_password () {
 	pass show -c "$password" 2>/dev/null
-else
+}
+
+type_password () {
 	pass show "$password" | { IFS= read -r pass; printf %s "$pass"; } |
 		xdotool type --clearmodifiers --file -
+}
+
+type_username () {
+	pass show "$password" | head -n 2 | tail -n +2 |
+		{ IFS= read -r pass; printf %s "$pass"; } |
+		xdotool type --clearmodifiers --file -
+}
+
+if [[ $typeit -eq 1 ]] ; then
+	type_password
+elif [[ $typeandcopy -eq 1 ]]; then
+	type_username
+	copy_password
+else
+	copy_password
 fi
