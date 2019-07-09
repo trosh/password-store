@@ -2,15 +2,17 @@
 
 shopt -s nullglob globstar
 
-typeit=0
-typeandcopy=0
-if [[ $1 == "--type" ]]; then
-	typeit=1
-	shift
-elif [[ $1 == "--type-and-copy" ]] ; then
-	typeandcopy=1
-	shift
-fi
+action=copy
+case $1 in
+	--type)
+		action=type
+		shift
+		;;
+	--type-and-copy)
+		action=typeandcopy
+		shift
+		;;
+esac
 
 prefix=${PASSWORD_STORE_DIR-~/.password-store}
 password_files=( "$prefix"/**/*.gpg )
@@ -26,21 +28,24 @@ copy_password () {
 }
 
 type_password () {
-	pass show "$password" | { IFS= read -r pass; printf %s "$pass"; } |
+	pass show "$password" | head -n 1 | tr -d '\n' |
 		xdotool type --clearmodifiers --file -
 }
 
 type_username () {
-	pass show "$password" | head -n 2 | tail -n +2 |
-		{ IFS= read -r pass; printf %s "$pass"; } |
+	pass show "$password" | head -n 2 | tail -n +2 | tr -d '\n' |
 		xdotool type --clearmodifiers --file -
 }
 
-if [[ $typeit -eq 1 ]] ; then
-	type_password
-elif [[ $typeandcopy -eq 1 ]]; then
-	type_username
-	copy_password
-else
-	copy_password
-fi
+case $action in
+	copy)
+		copy_password
+		;;
+	type)
+		type_password
+		;;
+	typeandcopy)
+		type_username
+		copy_password
+		;;
+esac
