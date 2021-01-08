@@ -18,34 +18,25 @@ prefix=${PASSWORD_STORE_DIR-~/.password-store}
 password_files=( "$prefix"/**/*.gpg )
 password_files=( "${password_files[@]#"$prefix"/}" )
 password_files=( "${password_files[@]%.gpg}" )
+X_SELECTION="${PASSWORD_STORE_X_SELECTION:-clipboard}"
+copy_cmd=( xclip -selection "$X_SELECTION" )
 
 password=$(printf '%s\n' "${password_files[@]}" | dmenu "$@")
 
 [[ -n $password ]] || exit
 
-copy_password () {
-	pass show -c "$password" 2>/dev/null
-}
-
-type_password () {
-	pass show "$password" | head -n 1 | tr -d '\n' |
-		xdotool type --clearmodifiers --file -
-}
-
-type_username () {
-	pass show "$password" | head -n 2 | tail -n +2 | tr -d '\n' |
-		xdotool type --clearmodifiers --file -
-}
-
 case $action in
 	copy)
-		copy_password
+		pass show --clip "$password" 2>/dev/null
 		;;
 	type)
-		type_password
+		pass show "$password" | head --lines 1 | tr --delete '\n' \
+			| xdotool type --clearmodifiers --file -
 		;;
 	typeandcopy)
-		type_username
-		copy_password
+		pass show "$password" \
+			| tee >(head --lines 1 | tr --delete '\n' | "${copy_cmd[@]}") \
+			| head --lines 2 | tail --lines +2 | tr --delete '\n' \
+			| xdotool type --clearmodifiers --file -
 		;;
 esac
