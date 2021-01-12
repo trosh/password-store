@@ -2,7 +2,6 @@
 
 shopt -s nullglob globstar
 
-action=copy
 case $1 in
 	--type)
 		action=type
@@ -12,6 +11,13 @@ case $1 in
 		action=typeandcopy
 		shift
 		;;
+	--primary-and-clipboard)
+		action=primaryandclipboard
+		shift
+		;;
+	*)
+		action=copy
+		;;
 esac
 
 prefix=${PASSWORD_STORE_DIR-~/.password-store}
@@ -19,11 +25,28 @@ password_files=( "$prefix"/**/*.gpg )
 password_files=( "${password_files[@]#"$prefix"/}" )
 password_files=( "${password_files[@]%.gpg}" )
 X_SELECTION="${PASSWORD_STORE_X_SELECTION:-clipboard}"
-copy_cmd=( xclip -selection "$X_SELECTION" )
+
+copy () {
+	if [ -n "$WAYLAND_DISPLAY" ]
+	then
+		if [ "$X_SELECTION" = primary ]
+		then
+			wl-copy --primary
+		else
+			wl-copy
+		fi
+	elif [ -n "$DISPLAY" ]
+	then
+		xclip -selection "$X_SELECTION"
+	else
+		echo "Error: No X11 or Wayland display detected" 1>&2
+		exit 1
+	fi
+}
 
 password=$(printf '%s\n' "${password_files[@]}" | dmenu "$@")
 
-[[ -n $password ]] || exit
+[ -n "$password" ] || exit 1
 
 case $action in
 	copy)
@@ -35,8 +58,14 @@ case $action in
 		;;
 	typeandcopy)
 		pass show "$password" \
-			| tee >(head --lines 1 | tr --delete '\n' | "${copy_cmd[@]}") \
+			| tee >(head --lines 1 | tr --delete '\n' | copy) \
 			| head --lines 2 | tail --lines +2 | tr --delete '\n' \
 			| xdotool type --clearmodifiers --file -
+		;;
+	primaryandclipboard)
+		pass show "$password" \
+			| tee >(head --lines 1 | tr --delete '\n' | X_SELECTION=clipboard copy) \
+			| head --lines 2 | tail --lines +2 | tr --delete '\n' \
+			| X_SELECTION=primary copy
 		;;
 esac
