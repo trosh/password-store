@@ -44,25 +44,40 @@ copy () {
 	fi
 }
 
+dotool () {
+	if [ -n "$WAYLAND_DISPLAY" ]
+	then
+		ydotool sleep 100 , type --file -
+	else
+		xdotool type --clearmodifiers --file -
+	fi
+}
+
 password=$(printf '%s\n' "${password_files[@]}" | dmenu "$@")
 
 [ -n "$password" ] || exit 1
 
 case $action in
 	copy)
+		# 1st line → clipboard
 		pass show --clip "$password" 2>/dev/null
 		;;
 	type)
-		pass show "$password" | head --lines 1 | tr --delete '\n' \
-			| xdotool type --clearmodifiers --file -
+		# 1st line → type
+		pass show "$password" | head --lines 1 | tr --delete '\n' | dotool
 		;;
 	typeandcopy)
+		# 1st line → clipboard
+		# 2nd line → type
+		# (1 decode)
 		pass show "$password" \
 			| tee >(head --lines 1 | tr --delete '\n' | copy) \
-			| head --lines 2 | tail --lines +2 | tr --delete '\n' \
-			| xdotool type --clearmodifiers --file -
+			| head --lines 2 | tail --lines +2 | tr --delete '\n' | dotool
 		;;
 	primaryandclipboard)
+		# 1st line → clipboard
+		# 2nd line → primary
+		# (1 decode)
 		pass show "$password" \
 			| tee >(head --lines 1 | tr --delete '\n' | X_SELECTION=clipboard copy) \
 			| head --lines 2 | tail --lines +2 | tr --delete '\n' \
